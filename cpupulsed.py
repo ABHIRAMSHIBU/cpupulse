@@ -12,8 +12,9 @@ import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib
 
-PLTBACKEND="MATPLOTLIB"
-#PLTBACKEND="PLOTLY"
+# PLTBACKEND="MATPLOTLIB"
+PLTBACKEND="PLOTLY"
+# PLTBACKEND="INTERNAL"
 def parseCPUINFO():
     f = open("/proc/cpuinfo")
     data = f.read().split("\n\n")
@@ -82,14 +83,19 @@ while(True):
     if(PLTBACKEND=="MATPLOTLIB"):
         fig = plt.figure(figsize=[10,3])
         for i in range(len(qdata[0])-1):
-            plt.plot([i for i in range(len(qdata_np))],np.asarray(qdata_np[:,i+1], dtype=np.float64))
+            plt.plot([j for j in range(len(qdata_np))],np.asarray(qdata_np[:,i+1], dtype=np.float64),label = str(i))
+        plt.legend()
     # Plotly
-    if(PLTBACKEND=="PLOTLY"):
+    elif(PLTBACKEND=="PLOTLY"):
         y = np.asarray(qdata_np[:,1:], dtype=np.float64)
-        x = np.array([i for i in range(len(qdata_np))])
-        y=np.column_stack((x,y))
         fig = px.line(y)
-        chart.plotly_chart(fig,use_container_width=True)
+    # Internal
+    elif(PLTBACKEND=="INTERNAL"):
+        y = np.asarray(qdata_np[:,1:], dtype=np.float64)
+        # x = np.array([i for i in range(len(qdata_np))]).reshape(-1,1)
+        # print(y.shape)
+        # y=np.hstack((x,y))
+        
     
     # Update UI
     tpl = datetime.now() - tpd - tcd - timenow  
@@ -98,8 +104,10 @@ while(True):
         chart.pyplot(fig)
         plt.close(fig)
     # Plotly
-    if(PLTBACKEND=="PLOTLY"):
+    elif(PLTBACKEND=="PLOTLY"):
         chart.plotly_chart(fig,use_container_width=True)
+    elif(PLTBACKEND=="INTERNAL"):
+        chart.line_chart(y)
     tst = datetime.now() - tpd - tcd - tpl - timenow
 
     # Logging
