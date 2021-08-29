@@ -39,12 +39,11 @@ def watchdog():
         # data aquisition...
         # Spool the data
         # DATA Processing
-        timestamp=datetime.now()
+        timestamp=time.time()
         cpudata = parseCPUINFO()
-        timestamp_1 = datetime.now()-timestamp
+        timestamp_1 = time.time()+timestamp
         timestamp_1/=2
-        timestamp=timestamp+timestamp_1
-        mhz_dict = {"time":timestamp.__str__()[10:],0:0,1:0,2:0,3:0,4:0,5:0,6:0,7:0}
+        mhz_dict = {"time":timestamp_1,0:0,1:0,2:0,3:0,4:0,5:0,6:0,7:0}
         for i in cpudata:
             mhz_dict[int(i['processor'])] = float(i["cpu MHz"])
         mhz_lst = list(mhz_dict.values())
@@ -59,12 +58,13 @@ def watchdog():
         else:
             time.sleep(sleeptime)
 
-# def acceptThread():
-
 
 class socketHander(socketserver.BaseRequestHandler):
     def handle(self):
         global qdata
+        global printing
+        global samples_persec
+        global delay
         while(True):
             self.data = self.request.recv(1024).strip()
             if(self.data.decode()==""):
