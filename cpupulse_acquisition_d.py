@@ -4,6 +4,7 @@ from threading import Thread
 from collections import deque
 import json
 import sys
+import socketserver
 
 printing=False # Binary semaphore. (mutex)
 
@@ -33,7 +34,6 @@ samples,delay = sliderToPointsAndSleep(1)
 
 def watchdog():
     #Thread -2 Code
-    
     while(run):
         timestarted = datetime.now()
         # data aquisition...
@@ -59,6 +59,50 @@ def watchdog():
         else:
             time.sleep(sleeptime)
 
+# def acceptThread():
+
+
+class socketHander(socketserver.BaseRequestHandler):
+    def handle(self):
+        global qdata
+        while(True):
+            self.data = self.request.recv(1024).strip()
+            if(self.data.decode()==""):
+                break
+            line = self.data.decode()
+            if(line.strip() == "data"):
+                #print the data
+                try:
+                    printing=True
+                    tosend = qdata.copy()
+                    for i in tosend:
+                        self.request.sendall((str(i)[1:-1]).encode()+b"\n")
+                    printing=False
+                except:
+                    sys.stderr.write("qdata Mutated\n")
+                    sys.stderr.flush()
+            elif(line.strip().startswith("pol")):
+                try:
+                    line = int(line.strip().replace("pol=",""))
+                    samples_persec,delay = sliderToPointsAndSleep(line)
+                    if samples_persec>len(qdata):
+                        # We have increase the size of deq
+                        qdata = deque([[0 for i in range(len(cpudata_og)+1)] for j in range(samples_persec - len(qdata))]+list(qdata),maxlen=samples_persec)
+                        sys.stderr.write("Increased:"+str(len(qdata))+"\n")
+                    elif(samples_persec<len(qdata)):
+                        # We have to decrease size
+                        qdata = deque(list(qdata)[-samples_persec:],maxlen=samples_persec)
+                        sys.stderr.write("Decreased:"+str(len(qdata))+"\n")
+                except:
+                    sys.stderr.write("Malformed pol\n")
+                    sys.stderr.flush()
+
+def socketThread():
+    HOST, PORT = "localhost", 9999
+    with socketserver.ThreadingTCPServer((HOST, PORT), socketHander) as server:
+        print("Listening on "+str(HOST)+" with port "+str(PORT))
+        server.serve_forever()
+
 cpudata_og = cpudata_og = parseCPUINFO()
 qdata = deque([[0 for i in range(len(cpudata_og)+1)] for j in range(samples)],maxlen=samples)
 mhz_lst=[]
@@ -68,31 +112,7 @@ t = Thread(target=watchdog)
 t.start()
 
 try:
-    #Thread -1
-    while(True):
-        line = input()
-        if(line.strip() == "data"):
-            #print the data
-            try:
-                printing=True
-                for i in qdata:
-                    print(str(i)[1:-1])
-                printing=False
-            except:
-                sys.stderr.write("qdata Mutated")
-                sys.stderr.flush()
-        elif(line.strip().startswith("pol")):
-            line = int(line.strip().replace("pol=",""))
-            samples_persec,delay = sliderToPointsAndSleep(line)
-            
-            if samples_persec>len(qdata):
-                # We have increase the size of deq
-                qdata = deque([[0 for i in range(len(cpudata_og)+1)] for j in range(samples_persec - len(qdata))]+list(qdata),maxlen=samples_persec)
-                print("Increased:",len(qdata))
-            elif(samples_persec<len(qdata)):
-                # We have to decrease size
-                qdata = deque(list(qdata)[-samples_persec:],maxlen=samples_persec)
-                print("Decreased:",len(qdata))
+    socketThread()
 except KeyboardInterrupt:
     print("Bye...")
     run=False
