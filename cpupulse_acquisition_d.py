@@ -3,6 +3,9 @@ from datetime import datetime
 from threading import Thread
 from collections import deque
 import json
+import sys
+
+printing=False # Binary semaphore. (mutex)
 
 def parseCPUINFO():
     f = open("/proc/cpuinfo")
@@ -45,12 +48,14 @@ def watchdog():
         for i in cpudata:
             mhz_dict[int(i['processor'])] = float(i["cpu MHz"])
         mhz_lst = list(mhz_dict.values())
+        while(printing):
+            time.sleep(0.0001)
         qdata.append(mhz_lst)
         timedelta = (datetime.now() - timestarted)
         sleeptime = delay - (timedelta.seconds + timedelta.microseconds/10**6)
         if(sleeptime<=0):
             pass
-            print("ERROR")
+            sys.stderr.write("ERROR\n")
         else:
             time.sleep(sleeptime)
 
@@ -68,8 +73,14 @@ try:
         line = input()
         if(line.strip() == "data"):
             #print the data
-            for i in qdata:
-                print(str(i)[1:-1])
+            try:
+                printing=True
+                for i in qdata:
+                    print(str(i)[1:-1])
+                printing=False
+            except:
+                sys.stderr.write("qdata Mutated")
+                sys.stderr.flush()
         elif(line.strip().startswith("pol")):
             line = int(line.strip().replace("pol=",""))
             samples_persec,delay = sliderToPointsAndSleep(line)
